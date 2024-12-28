@@ -122,7 +122,7 @@ const LiveFace = () => {
     <div className="min-h-screen bg-slate-900 p-4">
       <Button
         variant="ghost"
-        className="text-white mb-4"
+        className="text-white mb-4 w-full sm:w-auto border border-white/20"
         onClick={() => navigate("/")}
       >
         <ArrowLeft className="mr-2" /> Back
@@ -131,7 +131,7 @@ const LiveFace = () => {
       <div className="max-w-3xl mx-auto">
         <div className="flex justify-center mb-4">
           <Button
-            className="w-32"
+            className="w-full sm:max-w-md border border-white/20"
             onClick={isPlaying ? stopVideo : startVideo}
           >
             Camera {isPlaying ? "Off" : "On"}
@@ -154,7 +154,7 @@ const LiveFace = () => {
 
         <div className="flex justify-center mt-4">
           <Button
-            className="w-32"
+            className="w-full sm:max-w-md border border-white/20"
             onClick={flipCamera}
             disabled={!isPlaying}
           >
