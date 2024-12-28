@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import * as faceapi from "face-api.js";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
@@ -15,18 +16,36 @@ const LiveFace = () => {
   const streamRef = useRef<MediaStream | null>(null);
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
 
   const loadModels = async () => {
     const MODEL_URL = "/models";
+    const totalModels = 5;
+    let loadedModels = 0;
+
     try {
       setIsLoading(true);
-      await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-        faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
-        faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL),
-      ]);
+      
+      const updateProgress = () => {
+        loadedModels++;
+        setLoadingProgress((loadedModels / totalModels) * 100);
+      };
+
+      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+      updateProgress();
+      
+      await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+      updateProgress();
+      
+      await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+      updateProgress();
+      
+      await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
+      updateProgress();
+      
+      await faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL);
+      updateProgress();
+
       setModelsLoaded(true);
     } catch (error) {
       console.error("Error loading models:", error);
@@ -153,6 +172,13 @@ const LiveFace = () => {
       </Button>
 
       <div className="max-w-3xl mx-auto">
+        {isLoading && (
+          <div className="mb-4 space-y-2">
+            <div className="text-white text-sm">Loading AI Models...</div>
+            <Progress value={loadingProgress} className="w-full" />
+          </div>
+        )}
+
         <div className="flex justify-center mb-4">
           <Button
             className={`w-full sm:max-w-md border border-white/20 ${
