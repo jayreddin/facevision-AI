@@ -14,10 +14,6 @@ const LiveFace = () => {
   const [analysis, setAnalysis] = useState<string>("");
   const streamRef = useRef<MediaStream | null>(null);
 
-  useEffect(() => {
-    loadModels();
-  }, []);
-
   const loadModels = async () => {
     const MODEL_URL = "/models";
     try {
@@ -71,6 +67,10 @@ const LiveFace = () => {
       setTimeout(startVideo, 300);
     }
   };
+
+  useEffect(() => {
+    loadModels();
+  }, []);
 
   useEffect(() => {
     if (!videoRef.current || !isPlaying) return;
@@ -131,7 +131,9 @@ const LiveFace = () => {
       <div className="max-w-3xl mx-auto">
         <div className="flex justify-center mb-4">
           <Button
-            className="w-full sm:max-w-md border border-white/20"
+            className={`w-full sm:max-w-md border border-white/20 ${
+              isPlaying ? "bg-[#ea384c] hover:bg-[#ea384c]/90" : ""
+            }`}
             onClick={isPlaying ? stopVideo : startVideo}
           >
             Camera {isPlaying ? "Off" : "On"}
