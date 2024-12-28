@@ -13,10 +13,13 @@ const LiveFace = () => {
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const [analysis, setAnalysis] = useState<string>("");
   const streamRef = useRef<MediaStream | null>(null);
+  const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const loadModels = async () => {
     const MODEL_URL = "/models";
     try {
+      setIsLoading(true);
       await Promise.all([
         faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
         faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
@@ -24,12 +27,21 @@ const LiveFace = () => {
         faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
         faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL),
       ]);
+      setModelsLoaded(true);
     } catch (error) {
       console.error("Error loading models:", error);
+      setAnalysis("Error loading face detection models. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const startVideo = async () => {
+    if (!modelsLoaded) {
+      setAnalysis("Please wait for models to load...");
+      return;
+    }
+
     try {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
@@ -46,6 +58,7 @@ const LiveFace = () => {
       }
     } catch (error) {
       console.error("Error accessing camera:", error);
+      setAnalysis("Error accessing camera. Please check permissions and try again.");
     }
   };
 
@@ -70,10 +83,15 @@ const LiveFace = () => {
 
   useEffect(() => {
     loadModels();
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
   }, []);
 
   useEffect(() => {
-    if (!videoRef.current || !isPlaying) return;
+    if (!videoRef.current || !isPlaying || !modelsLoaded) return;
 
     const video = videoRef.current;
     video.addEventListener("play", () => {
@@ -87,36 +105,42 @@ const LiveFace = () => {
 
       faceapi.matchDimensions(canvas, displaySize);
 
-      setInterval(async () => {
+      const interval = setInterval(async () => {
         if (!video || !canvas) return;
 
-        const detections = await faceapi
-          .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
-          .withFaceLandmarks()
-          .withFaceExpressions()
-          .withAgeAndGender();
+        try {
+          const detections = await faceapi
+            .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+            .withFaceLandmarks()
+            .withFaceExpressions()
+            .withAgeAndGender();
 
-        const resizedDetections = faceapi.resizeResults(detections, displaySize);
-        canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
-        
-        faceapi.draw.drawDetections(canvas, resizedDetections);
-        faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
+          const resizedDetections = faceapi.resizeResults(detections, displaySize);
+          canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
+          
+          faceapi.draw.drawDetections(canvas, resizedDetections);
+          faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
 
-        if (detections[0]) {
-          const detection = detections[0];
-          const expressions = detection.expressions;
-          const dominantExpression = Object.entries(expressions)
-            .reduce((a, b) => a[1] > b[1] ? a : b)[0];
+          if (detections[0]) {
+            const detection = detections[0];
+            const expressions = detection.expressions;
+            const dominantExpression = Object.entries(expressions)
+              .reduce((a, b) => a[1] > b[1] ? a : b)[0];
 
-          setAnalysis(`
-            Age: ${Math.round(detection.age)} years
-            Gender: ${detection.gender} (${Math.round(detection.genderProbability * 100)}% confidence)
-            Expression: ${dominantExpression}
-          `);
+            setAnalysis(`
+              Age: ${Math.round(detection.age)} years
+              Gender: ${detection.gender} (${Math.round(detection.genderProbability * 100)}% confidence)
+              Expression: ${dominantExpression}
+            `);
+          }
+        } catch (error) {
+          console.error("Error during face detection:", error);
         }
       }, 100);
+
+      return () => clearInterval(interval);
     });
-  }, [isPlaying]);
+  }, [isPlaying, modelsLoaded]);
 
   return (
     <div className="min-h-screen bg-slate-900 p-4">
@@ -135,8 +159,9 @@ const LiveFace = () => {
               isPlaying ? "bg-[#ea384c] hover:bg-[#ea384c]/90" : ""
             }`}
             onClick={isPlaying ? stopVideo : startVideo}
+            disabled={isLoading}
           >
-            Camera {isPlaying ? "Off" : "On"}
+            {isLoading ? "Loading Models..." : `Camera ${isPlaying ? "Off" : "On"}`}
           </Button>
         </div>
 
@@ -158,7 +183,7 @@ const LiveFace = () => {
           <Button
             className="w-full sm:max-w-md border border-white/20"
             onClick={flipCamera}
-            disabled={!isPlaying}
+            disabled={!isPlaying || isLoading}
           >
             Flip Camera
           </Button>
